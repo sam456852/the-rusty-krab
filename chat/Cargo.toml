@@ -1,0 +1,6 @@
+[package]
+name = "chat"
+version = "0.1.0"
+authors = ["olivergoodman <olivergoodman2017@u.northwestern.edu>"]
+
+[dependencies]
