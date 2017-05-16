@@ -27,7 +27,11 @@ fn write_log(mut new_message: String) -> String {
                     .append(true)
                     .open("messages.txt")
                     .unwrap();
-    new_message.push_str("\n");
+    print!("{}",new_message);
+    // Ignore the message if it's just a poll from the client
+    if new_message.len() != 0 {
+        new_message.push_str("\n");
+    }
     file.write_all(new_message.as_bytes()).unwrap();
     file.seek(SeekFrom::Start(0)).unwrap();
     let mut messages = String::new();
