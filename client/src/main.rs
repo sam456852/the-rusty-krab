@@ -1,6 +1,3 @@
-//! # Toolbar, Scrollable Text View and File Chooser
-//!
-//! A simple text file viewer
 
 extern crate gtk;
 extern crate glib;
