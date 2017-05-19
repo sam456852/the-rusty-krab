@@ -1,9 +1,13 @@
+#[macro_use]
+extern crate serde_json;
 extern crate iron;
 
 use iron::prelude::*;
 use iron::status;
 use std::fs::OpenOptions;
 use std::io::{Write, Read, Seek, SeekFrom};
+
+mod message;
 
 fn main() {
     println!("Welcome to Rust chat!");
