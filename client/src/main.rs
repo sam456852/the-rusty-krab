@@ -4,6 +4,8 @@ extern crate glib;
 extern crate hyper;
 #[macro_use]
 extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
 
 use std::io::Read;
 use std::cell::RefCell;
@@ -20,6 +22,13 @@ use gtk::Builder;
 pub struct MessageData {
 	last_received: i64,
     username: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Message {
+	username: String,
+	body: String,
+	last_received: i64,
 }
 
 pub fn main() {
@@ -64,8 +73,8 @@ pub fn main() {
         let mut chat_window_end = chat_window_buffer.get_end_iter();
         let send_button_data = send_button_data_mutex.lock().unwrap();
         chat_window_buffer.insert(
-            &mut chat_window_end,
-            &format!("{}: {}",  current_text, send_button_data.username)
+            &mut chat_window_end, 
+            &format!("{}: {}\n",  send_button_data.username, current_text)
         );
 
         sent_message_view.get_buffer().unwrap().set_text("");
@@ -178,12 +187,14 @@ fn send_http_and_write_response(text: &str,
     let client = Client::new();
     let json = make_json(text, data_mutex.clone());
     let mut response = client.post("http://localhost:3000/").body(&json).send().unwrap();
-    let mut data = data_mutex.lock().unwrap();
-    data.last_received = data.last_received + 1;
     let mut body = String::new();
     response.read_to_string(&mut body).unwrap();
+    let mut data = data_mutex.lock().unwrap();
+    let m: Message = serde_json::from_str(&body).unwrap();
+    let body = m.body;
+    data.last_received = m.last_received;
     if !body.is_empty() {
-        tx.send(body).unwrap();
+        tx.send(format!("{}: {}\n", m.username, body)).unwrap();
         glib::idle_add(receive);
     }
 }
@@ -201,7 +212,11 @@ fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
         if let Some((ref buf, ref rx)) = *global.borrow() {
             if let Ok(text) = rx.try_recv() {
-                buf.insert_at_cursor(&text);
+                let mut chat_window_end = buf.get_end_iter();
+                buf.insert(
+                    &mut chat_window_end, 
+                    &text
+                );
             }
         }
     });
