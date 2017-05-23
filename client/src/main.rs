@@ -30,21 +30,15 @@ pub fn main() {
 
     let data = MessageData {
         last_received: 0,
-        username: "Chris".to_owned(),
+        username: "",
     };
 
     let data_mutex = Arc::new(Mutex::new(data));
-
     let (tx, rx) = channel();
-
-
-
 
     let glade_src = include_str!("rusty_chat.glade");
     let builder = Builder::new();
     builder.add_from_string(glade_src).unwrap();
-
-
 
     let window: gtk::Window = builder.get_object("window").unwrap();
 
@@ -55,22 +49,6 @@ pub fn main() {
 
     let chat_view: gtk::TextView = builder.get_object("chat_view").unwrap();
     let text_view: gtk::TextView = builder.get_object("text_view").unwrap();
-
-    log_in_button.connect_clicked(move |_| {
-
-        make_log_in_window();
-
-    });
-
-    new_chat_button.connect_clicked(move |_| {
-
-        // TODO
-    });
-
-    switch_chat_button.connect_clicked(move |_| {
-
-        // TODO
-    });
 
     let sent_message_view = text_view.clone();
     let send_button_tx = tx.clone();
@@ -102,18 +80,37 @@ pub fn main() {
         });
     });
 
+    GLOBAL.with(move |global| {
+        *global.borrow_mut() = Some((chat_view.get_buffer().unwrap(), rx))
+    });
+
     window.connect_delete_event(|_, _| {
         gtk::main_quit();
         Inhibit(false)
     });
 
-    create_poll_thread(chat_view, tx, rx, data_mutex);
+    log_in_button.connect_clicked(move |_| {
+
+        make_log_in_window(tx.clone(), data_mutex.clone());
+    });
+
+    new_chat_button.connect_clicked(move |_| {
+
+        // TODO
+    });
+
+    switch_chat_button.connect_clicked(move |_| {
+
+        // TODO
+    });
+
 
     window.show_all();
     gtk::main();
 }
 
-fn make_log_in_window (){
+fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
+                    data_mutex: Arc<Mutex<MessageData>>){
 
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
 
@@ -122,11 +119,6 @@ fn make_log_in_window (){
 
     let button = gtk::Button::new_with_label("Log in");
     let window_clone = window.clone();
-    button.connect_clicked(move |_| {
-
-        window_clone.destroy();
-        //create_poll_thread(chat_view);
-    });
 
     let username_entry = gtk::Entry::new();
     username_entry.set_tooltip_text("Username");
@@ -135,6 +127,26 @@ fn make_log_in_window (){
     password_entry.set_tooltip_text("Password");
     password_entry.set_text("Password");
     password_entry.set_visibility(false);
+
+    let data_mutex_clone = data_mutex.clone();
+    let username_entry_clone = username_entry.clone();
+
+    button.connect_clicked(move |_| {
+
+        let username_buffer = username_entry_clone.get_buffer();
+        let username_text = username_buffer.get_text();
+
+        let mut data = data_mutex_clone.lock().unwrap();
+        data.username = username_text;
+        window_clone.destroy();
+
+        let tx_clone = tx.clone();
+        let data_mutex_clone = data_mutex.clone();
+
+        thread::spawn(move|| {
+            poll_loop(tx_clone, data_mutex_clone);
+        });
+    });
 
 
     let gtkbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -147,22 +159,6 @@ fn make_log_in_window (){
     window.add(&gtkbox);
 
     window.show_all();
-}
-
-fn create_poll_thread(chat_view: gtk::TextView,
-                    tx: std::sync::mpsc::Sender<String>,
-                    rx: std::sync::mpsc::Receiver<String>,
-                    data_mutex: Arc<Mutex<MessageData>>) {
-
-    // put TextBuffer and receiver in thread local storage
-    // This seems wonky, but it's how the gtk tutorial does it
-    GLOBAL.with(move |global| {
-        *global.borrow_mut() = Some((chat_view.get_buffer().unwrap(), rx))
-    });
-
-    thread::spawn(move|| {
-        poll_loop(tx, data_mutex.clone());
-    });
 }
 
 /// Polls the server to see if new messages have been posted
