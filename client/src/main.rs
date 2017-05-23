@@ -27,7 +27,7 @@ pub fn main() {
         println!("Failed to initialize GTK.");
         return;
     }
-    
+
     let data = MessageData {
         last_received: 0,
         username: "Chris".to_owned(),
@@ -37,9 +37,14 @@ pub fn main() {
 
     let (tx, rx) = channel();
 
+
+
+
     let glade_src = include_str!("rusty_chat.glade");
     let builder = Builder::new();
     builder.add_from_string(glade_src).unwrap();
+
+
 
     let window: gtk::Window = builder.get_object("window").unwrap();
 
@@ -52,8 +57,9 @@ pub fn main() {
     let text_view: gtk::TextView = builder.get_object("text_view").unwrap();
 
     log_in_button.connect_clicked(move |_| {
-        
-        // TODO
+
+        make_log_in_window();
+
     });
 
     new_chat_button.connect_clicked(move |_| {
@@ -80,16 +86,17 @@ pub fn main() {
         let mut chat_window_end = chat_window_buffer.get_end_iter();
         let send_button_data = send_button_data_mutex.lock().unwrap();
         chat_window_buffer.insert(
-            &mut chat_window_end, 
+            &mut chat_window_end,
             &format!("{}: {}",  current_text, send_button_data.username)
         );
+
         sent_message_view.get_buffer().unwrap().set_text("");
         let message_thread_tx = send_button_tx.clone();
         let message_thread_data = send_button_data_mutex.clone();
         thread::spawn(move || {
             send_http_and_write_response(
-                &current_text, 
-                &message_thread_tx, 
+                &current_text,
+                &message_thread_tx,
                 &message_thread_data
             );
         });
@@ -102,14 +109,49 @@ pub fn main() {
 
     create_poll_thread(chat_view, tx, rx, data_mutex);
 
-
     window.show_all();
     gtk::main();
 }
 
-fn create_poll_thread(chat_view: gtk::TextView, 
-                    tx: std::sync::mpsc::Sender<String>, 
-                    rx: std::sync::mpsc::Receiver<String>, 
+fn make_log_in_window (){
+
+    let window = gtk::Window::new(gtk::WindowType::Toplevel);
+
+    window.set_title("Log in");
+    window.set_default_size(400, 200);
+
+    let button = gtk::Button::new_with_label("Log in");
+    let window_clone = window.clone();
+    button.connect_clicked(move |_| {
+
+        window_clone.destroy();
+        //create_poll_thread(chat_view);
+    });
+
+    let username_entry = gtk::Entry::new();
+    username_entry.set_tooltip_text("Username");
+    username_entry.set_text("Username");
+    let password_entry = gtk::Entry::new();
+    password_entry.set_tooltip_text("Password");
+    password_entry.set_text("Password");
+    password_entry.set_visibility(false);
+
+
+    let gtkbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    gtkbox.add(&username_entry);
+    gtkbox.add(&password_entry);
+    gtkbox.add(&button);
+
+    gtkbox.set_child_packing(&button, false, true, 0, gtk::PackType::Start);
+
+    window.add(&gtkbox);
+
+    window.show_all();
+}
+
+fn create_poll_thread(chat_view: gtk::TextView,
+                    tx: std::sync::mpsc::Sender<String>,
+                    rx: std::sync::mpsc::Receiver<String>,
                     data_mutex: Arc<Mutex<MessageData>>) {
 
     // put TextBuffer and receiver in thread local storage
@@ -124,9 +166,9 @@ fn create_poll_thread(chat_view: gtk::TextView,
 }
 
 /// Polls the server to see if new messages have been posted
-/// Possibly should be switched to server pushes or 
+/// Possibly should be switched to server pushes or
 /// [long polling](https://xmpp.org/extensions/xep-0124.html#technique)
-fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>, 
+fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>,
             data_mutex: Arc<Mutex<MessageData>>) {
     loop {
         thread::sleep(Duration::from_millis(500));
@@ -134,8 +176,8 @@ fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>,
     }
 }
 
-fn send_http_and_write_response(text: &str, 
-                                tx: &std::sync::mpsc::Sender<std::string::String>, 
+fn send_http_and_write_response(text: &str,
+                                tx: &std::sync::mpsc::Sender<std::string::String>,
                                 data_mutex: &Arc<Mutex<MessageData>>) {
     let client = Client::new();
     let json = make_json(text, data_mutex.clone());
@@ -163,7 +205,7 @@ fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
         if let Some((ref buf, ref rx)) = *global.borrow() {
             if let Ok(text) = rx.try_recv() {
-                buf.set_text(&text);
+                buf.insert_at_cursor(&text);
             }
         }
     });
@@ -172,6 +214,6 @@ fn receive() -> glib::Continue {
 
 // declare a new thread local storage key (Again this is how the example did it)
 thread_local!(
-    static GLOBAL: RefCell<Option<(gtk::TextBuffer, Receiver<String>)>> 
+    static GLOBAL: RefCell<Option<(gtk::TextBuffer, Receiver<String>)>>
         = RefCell::new(None)
 );
