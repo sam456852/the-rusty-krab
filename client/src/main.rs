@@ -27,14 +27,13 @@ pub fn main() {
         println!("Failed to initialize GTK.");
         return;
     }
-    
+
     let data = MessageData {
         last_received: 0,
-        username: "Chris".to_owned(),
+        username: "".to_string(),
     };
 
     let data_mutex = Arc::new(Mutex::new(data));
-
     let (tx, rx) = channel();
 
     let glade_src = include_str!("rusty_chat.glade");
@@ -51,21 +50,6 @@ pub fn main() {
     let chat_view: gtk::TextView = builder.get_object("chat_view").unwrap();
     let text_view: gtk::TextView = builder.get_object("text_view").unwrap();
 
-    log_in_button.connect_clicked(move |_| {
-        
-        // TODO
-    });
-
-    new_chat_button.connect_clicked(move |_| {
-
-        // TODO
-    });
-
-    switch_chat_button.connect_clicked(move |_| {
-
-        // TODO
-    });
-
     let sent_message_view = text_view.clone();
     let send_button_tx = tx.clone();
     let chat_window = chat_view.clone();
@@ -80,19 +64,24 @@ pub fn main() {
         let mut chat_window_end = chat_window_buffer.get_end_iter();
         let send_button_data = send_button_data_mutex.lock().unwrap();
         chat_window_buffer.insert(
-            &mut chat_window_end, 
+            &mut chat_window_end,
             &format!("{}: {}",  current_text, send_button_data.username)
         );
+
         sent_message_view.get_buffer().unwrap().set_text("");
         let message_thread_tx = send_button_tx.clone();
         let message_thread_data = send_button_data_mutex.clone();
         thread::spawn(move || {
             send_http_and_write_response(
-                &current_text, 
-                &message_thread_tx, 
+                &current_text,
+                &message_thread_tx,
                 &message_thread_data
             );
         });
+    });
+
+    GLOBAL.with(move |global| {
+        *global.borrow_mut() = Some((chat_view.get_buffer().unwrap(), rx))
     });
 
     window.connect_delete_event(|_, _| {
@@ -100,33 +89,82 @@ pub fn main() {
         Inhibit(false)
     });
 
-    create_poll_thread(chat_view, tx, rx, data_mutex);
+    log_in_button.connect_clicked(move |_| {
+
+        make_log_in_window(tx.clone(), data_mutex.clone());
+    });
+
+    new_chat_button.connect_clicked(move |_| {
+
+        // TODO
+    });
+
+    switch_chat_button.connect_clicked(move |_| {
+
+        // TODO
+    });
 
 
     window.show_all();
     gtk::main();
 }
 
-fn create_poll_thread(chat_view: gtk::TextView, 
-                    tx: std::sync::mpsc::Sender<String>, 
-                    rx: std::sync::mpsc::Receiver<String>, 
-                    data_mutex: Arc<Mutex<MessageData>>) {
+fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
+                    data_mutex: Arc<Mutex<MessageData>>){
 
-    // put TextBuffer and receiver in thread local storage
-    // This seems wonky, but it's how the gtk tutorial does it
-    GLOBAL.with(move |global| {
-        *global.borrow_mut() = Some((chat_view.get_buffer().unwrap(), rx))
+    let window = gtk::Window::new(gtk::WindowType::Toplevel);
+
+    window.set_title("Log in");
+    window.set_default_size(400, 200);
+
+    let button = gtk::Button::new_with_label("Log in");
+    let window_clone = window.clone();
+
+    let username_entry = gtk::Entry::new();
+    username_entry.set_tooltip_text("Username");
+    username_entry.set_text("Username");
+    let password_entry = gtk::Entry::new();
+    password_entry.set_tooltip_text("Password");
+    password_entry.set_text("Password");
+    password_entry.set_visibility(false);
+
+    let data_mutex_clone = data_mutex.clone();
+    let username_entry_clone = username_entry.clone();
+
+    button.connect_clicked(move |_| {
+
+        let username_buffer = username_entry_clone.get_buffer();
+        let username_text = username_buffer.get_text();
+
+        let mut data = data_mutex_clone.lock().unwrap();
+        data.username = username_text;
+        window_clone.destroy();
+
+        let tx_clone = tx.clone();
+        let data_mutex_clone = data_mutex.clone();
+
+        thread::spawn(move|| {
+            poll_loop(tx_clone, data_mutex_clone);
+        });
     });
 
-    thread::spawn(move|| {
-        poll_loop(tx, data_mutex.clone());
-    });
+
+    let gtkbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    gtkbox.add(&username_entry);
+    gtkbox.add(&password_entry);
+    gtkbox.add(&button);
+
+    gtkbox.set_child_packing(&button, false, true, 0, gtk::PackType::Start);
+
+    window.add(&gtkbox);
+
+    window.show_all();
 }
 
 /// Polls the server to see if new messages have been posted
-/// Possibly should be switched to server pushes or 
+/// Possibly should be switched to server pushes or
 /// [long polling](https://xmpp.org/extensions/xep-0124.html#technique)
-fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>, 
+fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>,
             data_mutex: Arc<Mutex<MessageData>>) {
     loop {
         thread::sleep(Duration::from_millis(500));
@@ -134,8 +172,8 @@ fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>,
     }
 }
 
-fn send_http_and_write_response(text: &str, 
-                                tx: &std::sync::mpsc::Sender<std::string::String>, 
+fn send_http_and_write_response(text: &str,
+                                tx: &std::sync::mpsc::Sender<std::string::String>,
                                 data_mutex: &Arc<Mutex<MessageData>>) {
     let client = Client::new();
     let json = make_json(text, data_mutex.clone());
@@ -163,7 +201,7 @@ fn receive() -> glib::Continue {
     GLOBAL.with(|global| {
         if let Some((ref buf, ref rx)) = *global.borrow() {
             if let Ok(text) = rx.try_recv() {
-                buf.set_text(&text);
+                buf.insert_at_cursor(&text);
             }
         }
     });
@@ -172,6 +210,6 @@ fn receive() -> glib::Continue {
 
 // declare a new thread local storage key (Again this is how the example did it)
 thread_local!(
-    static GLOBAL: RefCell<Option<(gtk::TextBuffer, Receiver<String>)>> 
+    static GLOBAL: RefCell<Option<(gtk::TextBuffer, Receiver<String>)>>
         = RefCell::new(None)
 );
