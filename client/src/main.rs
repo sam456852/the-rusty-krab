@@ -30,7 +30,7 @@ pub fn main() {
 
     let data = MessageData {
         last_received: 0,
-        username: "",
+        username: "".to_string(),
     };
 
     let data_mutex = Arc::new(Mutex::new(data));
