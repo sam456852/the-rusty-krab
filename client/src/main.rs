@@ -12,7 +12,6 @@ use std::cell::RefCell;
 use std::sync::mpsc::{channel, Receiver};
 use std::thread;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use hyper::Client;
 use gtk::prelude::*;
@@ -66,7 +65,7 @@ pub fn main() {
 
     let sent_message_view = text_view.clone();
     let send_button_tx = tx.clone();
-    let chat_window = chat_view.clone();
+    // let chat_window = chat_view.clone();
     let send_button_data_mutex = data_mutex.clone();
 
     send_button.connect_clicked(move |_| {
@@ -74,14 +73,14 @@ pub fn main() {
         let start = current_message_buffer.get_start_iter();
         let end = current_message_buffer.get_end_iter();
         let current_text = current_message_buffer.get_text(&start, &end, true).unwrap();
-        let chat_window_buffer = chat_window.get_buffer().unwrap();
-        let mut chat_window_end = chat_window_buffer.get_end_iter();
-        let send_button_data = send_button_data_mutex.lock().unwrap();
+        // let send_button_data = send_button_data_mutex.lock().unwrap();
+        // let chat_window_buffer = chat_window.get_buffer().unwrap();
+        // Code to make the chat automatically append its own messages
+        // let mut chat_window_end = chat_window_buffer.get_end_iter();
         // chat_window_buffer.insert(
         //     &mut chat_window_end, 
         //     &format!("{}: {}\n",  send_button_data.username, current_text)
         // );
-
         sent_message_view.get_buffer().unwrap().set_text("");
         let message_thread_tx = send_button_tx.clone();
         let message_thread_data = send_button_data_mutex.clone();
@@ -95,6 +94,7 @@ pub fn main() {
     });
 
     GLOBAL.with(move |global| {
+
         *global.borrow_mut() = Some((chat_view.get_buffer().unwrap(), rx))
     });
 
@@ -179,7 +179,6 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
 fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>,
             data_mutex: Arc<Mutex<MessageData>>) {
     loop {
-        // thread::sleep(Duration::from_millis(10000));
         send_http_and_write_response("", &tx, &data_mutex.clone());
     }
 }
