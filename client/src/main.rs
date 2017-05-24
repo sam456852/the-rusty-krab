@@ -78,7 +78,7 @@ pub fn main() {
         let mut chat_window_end = chat_window_buffer.get_end_iter();
         let send_button_data = send_button_data_mutex.lock().unwrap();
         // chat_window_buffer.insert(
-        //     &mut chat_window_end, 
+        //     &mut chat_window_end,
         //     &format!("{}: {}\n",  send_button_data.username, current_text)
         // );
 
@@ -89,7 +89,8 @@ pub fn main() {
             send_http_and_write_response(
                 &current_text,
                 &message_thread_tx,
-                &message_thread_data
+                &message_thread_data,
+                false
             );
         });
     });
@@ -151,14 +152,14 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
         let username_text = username_buffer.get_text();
 
         let mut data = data_mutex_clone.lock().unwrap();
-        data.username = username_text;
+        data.username = username_text.clone();
         window_clone.destroy();
 
         let tx_clone = tx.clone();
         let data_mutex_clone = data_mutex.clone();
 
         thread::spawn(move|| {
-            poll_loop(tx_clone, data_mutex_clone);
+            long_poll(tx_clone, data_mutex_clone, username_text, 0);
         });
     });
 
@@ -178,19 +179,34 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
 /// Polls the server to see if new messages have been posted
 /// Possibly should be switched to server pushes or
 /// [long polling](https://xmpp.org/extensions/xep-0124.html#technique)
-fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>,
-            data_mutex: Arc<Mutex<MessageData>>) {
+fn long_poll(tx: std::sync::mpsc::Sender<std::string::String>,
+            data_mutex: Arc<Mutex<MessageData>>,
+            username: String,
+            mut last_received: i64) {
     loop {
-        thread::sleep(Duration::from_millis(10000));
-        send_http_and_write_response("", &tx, &data_mutex);
+        let request_body = json!({
+            "username": username,
+            "body": "".to_owned(),
+            "last_received": last_received,
+        }).to_string();
+        last_received = send_http_and_write_response(request_body.as_str(), &tx, &data_mutex, true);
+        thread::sleep_ms(10000);
     }
 }
 
 fn send_http_and_write_response(text: &str,
                                 tx: &std::sync::mpsc::Sender<std::string::String>,
-                                data_mutex: &Arc<Mutex<MessageData>>) {
+                                data_mutex: &Arc<Mutex<MessageData>>,
+                                is_poll: bool) -> i64 {
     let client = Client::new();
-    let json = make_json(text, data_mutex.clone());
+    let mut json = String::new();
+    if is_poll {
+        json = text.to_string();
+    }
+    else {
+        json = make_json(text, data_mutex.clone());
+    }
+
     let mut response = client.post("http://localhost:3000/").body(&json).send().unwrap();
     let mut body = String::new();
     response.read_to_string(&mut body).unwrap();
@@ -208,6 +224,7 @@ fn send_http_and_write_response(text: &str,
         tx.send(new_messages).unwrap();
         glib::idle_add(receive);
     }
+    return r.last_received;
 }
 
 fn make_json(text: &str, data_mutex: Arc<Mutex<MessageData>>) -> String {
@@ -225,7 +242,7 @@ fn receive() -> glib::Continue {
             if let Ok(text) = rx.try_recv() {
                 let mut chat_window_end = buf.get_end_iter();
                 buf.insert(
-                    &mut chat_window_end, 
+                    &mut chat_window_end,
                     &text
                 );
             }
