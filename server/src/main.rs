@@ -53,8 +53,8 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
 }
 
 fn long_poll(poll: Message) -> response::Response {
-    let log_time = time::get_time().sec;
-    let mut response = response::Response::new(log_time);
+    let mut last_received = time::get_time().sec;
+    let mut response = response::Response::new();
     let mut saw_self = false;
     while response.messages.is_empty() && !saw_self {
         let mut file = OpenOptions::new()
@@ -68,6 +68,7 @@ fn long_poll(poll: Message) -> response::Response {
             let line_vec: Vec<&str> = l.split("\t").collect();
             let line_timestamp = i64::from_str(line_vec[0]).unwrap();
             if line_timestamp > poll.last_received {
+                last_received = line_timestamp;
                 if line_vec[1] == poll.username {
                     saw_self = true;
                     break;
@@ -79,6 +80,7 @@ fn long_poll(poll: Message) -> response::Response {
             }
         }
     }
+    response.last_received = last_received;
     return response;
 }
 
@@ -98,7 +100,8 @@ fn write_log(mut new_message: Message) -> response::Response {
 
     file.write_all(log_string.as_bytes()).unwrap();
     file.seek(SeekFrom::Start(0)).unwrap();
-    let mut response = response::Response::new(log_time);
+    let mut response = response::Response::new();
+    response.last_received = log_time;
     let reader = BufReader::new(file);
     for line in reader.lines() {
         let l = line.unwrap();

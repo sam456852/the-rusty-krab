@@ -12,10 +12,10 @@ pub struct Response {
 
 impl Response {
 
-    pub fn new(last_received: i64) -> Self {
-        Response {
+    pub fn new() -> Self {
+        Response{
             messages: vec![],
-            last_received: last_received,
+            last_received: 0,
         }
     }
 
