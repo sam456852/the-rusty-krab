@@ -8,12 +8,13 @@ extern crate time;
 
 use iron::prelude::*;
 use iron::status;
-use std::fs::OpenOptions;
+use std::fs::{OpenOptions, File};
 use std::io::{Write, Read, Seek, SeekFrom, BufRead, BufReader};
 use serde_json::{Value, Error};
 use std::str::FromStr;
 use std::collections::HashMap;
 use std::thread;
+
 
 mod message;
 use message::Message;
@@ -21,6 +22,9 @@ mod response;
 
 fn main() {
     println!("Welcome to Rust chat!");
+
+    let file = OpenOptions::new().write(true).truncate(true).open("messages.txt");
+
     // Iron will already spawn a new thread per incoming request
     Iron::new(parse_request).http("localhost:3000").unwrap();
 }
