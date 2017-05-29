@@ -27,9 +27,6 @@ static USERS_PREFIX: &'static str = "users_";
 
 fn main() {
     println!("Welcome to Rust chat!");
-
-    let file = OpenOptions::new().write(true).truncate(true).open("messages.txt");
-
     // Iron will already spawn a new thread per incoming request
     Iron::new(parse_request).http("localhost:3000").unwrap();
 }
