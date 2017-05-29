@@ -22,7 +22,7 @@ mod response;
 
 static MESSAGES_PREFIX: &'static str = "messages_";
 static TXT_SUFFIX: &'static str = ".txt";
-static USERS_PREFIX: &'static str = "users_";
+static USERS_PREFIX: &'static str = "users";
 
 
 fn main() {
@@ -38,7 +38,11 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
         .read_to_string(&mut body)
         .map_err(|e| IronError::new(e, (status::InternalServerError, "Error reading request")))?;
     let m: Message = serde_json::from_str(body.as_str()).unwrap();
-    if m.is_login() {
+    if m.is_logout() {
+        logout(m);
+        Ok(Response::with((status::Ok, "")))
+    }
+    else if m.is_login() {
         let response = login(m);
         if response.messages.is_empty() && response.last_received == 0 {
             Ok(Response::with((status::Unauthorized, "")))
@@ -63,10 +67,39 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
     }
 }
 
+fn logout(logout: Message) {
+    let users_name = USERS_PREFIX.to_owned() + TXT_SUFFIX;
+    let mut users_file = OpenOptions::new()
+                        .read(true)
+                        .open(users_name)
+                        .unwrap();
+    users_file.seek(SeekFrom::Start(0)).unwrap();
+    let users_reader = BufReader::new(users_file);
+    let mut users_to_keep = vec![];
+    for line in users_reader.lines() {
+        let username = line.unwrap();
+        if username != logout.username {
+            users_to_keep.push(username);
+        }
+    }
+    let users_name_write = USERS_PREFIX.to_owned() + TXT_SUFFIX;
+    let mut users_file_write = OpenOptions::new()
+                        .write(true)
+                        .truncate(true)
+                        .open(users_name_write)
+                        .unwrap();
+    users_file_write.seek(SeekFrom::Start(0)).unwrap();
+    let mut user_log_entry = String::new();
+    for username in users_to_keep {
+        user_log_entry.push_str((username + "\n").as_str());
+    }
+    users_file_write.write_all(user_log_entry.as_bytes()).unwrap();
+}
+
 fn login(login: Message) -> response::Response {
     let mut last_received = time::get_time().sec;
     let mut response = response::Response::new();
-    let users_name = USERS_PREFIX.to_owned() + login.room.as_str() + TXT_SUFFIX;
+    let users_name = USERS_PREFIX.to_owned() + TXT_SUFFIX;
     let mut users_file = OpenOptions::new()
                         .create(true)
                         .append(true)
@@ -81,7 +114,7 @@ fn login(login: Message) -> response::Response {
             return response;
         }
     }
-    let users_name_write = USERS_PREFIX.to_owned() + login.room.as_str() + TXT_SUFFIX;
+    let users_name_write = USERS_PREFIX.to_owned() + TXT_SUFFIX;
     let mut users_file_write = OpenOptions::new()
                         .append(true)
                         .open(users_name_write)
