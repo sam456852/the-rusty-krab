@@ -20,6 +20,11 @@ mod message;
 use message::Message;
 mod response;
 
+static MESSAGES_PREFIX: &'static str = "messages_";
+static TXT_SUFFIX: &'static str = ".txt";
+static USERS_PREFIX: &'static str = "users_";
+
+
 fn main() {
     println!("Welcome to Rust chat!");
 
@@ -36,7 +41,16 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
         .read_to_string(&mut body)
         .map_err(|e| IronError::new(e, (status::InternalServerError, "Error reading request")))?;
     let m: Message = serde_json::from_str(body.as_str()).unwrap();
-    if m.is_poll() {
+    if m.is_login() {
+        let response = login(m);
+        if response.messages.is_empty() && response.last_received == 0 {
+            Ok(Response::with((status::Unauthorized, "")))
+        }
+        else {
+            Ok(Response::with((status::Ok, serde_json::to_string(&response).unwrap())))
+        }
+    }
+    else if m.is_poll() {
         let response = long_poll(m);
         if response.messages.is_empty() {
             Ok(Response::with((status::NoContent, "")))
@@ -52,14 +66,68 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
     }
 }
 
+fn login(login: Message) -> response::Response {
+    let mut last_received = time::get_time().sec;
+    let mut response = response::Response::new();
+    let users_name = USERS_PREFIX.to_owned() + login.room.as_str() + TXT_SUFFIX;
+    let mut users_file = OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .read(true)
+                        .open(users_name)
+                        .unwrap();
+    users_file.seek(SeekFrom::Start(0)).unwrap();
+    let users_reader = BufReader::new(users_file);
+    for line in users_reader.lines() {
+        let username = line.unwrap();
+        if username == login.username {
+            return response;
+        }
+    }
+    let users_name_write = USERS_PREFIX.to_owned() + login.room.as_str() + TXT_SUFFIX;
+    let mut users_file_write = OpenOptions::new()
+                        .append(true)
+                        .open(users_name_write)
+                        .unwrap();
+    users_file_write.seek(SeekFrom::Start(0)).unwrap();
+    let user_log_entry = login.username + "\n";
+    users_file_write.write_all(user_log_entry.as_bytes()).unwrap();
+    let messages_name = MESSAGES_PREFIX.to_owned() + login.room.as_str() + TXT_SUFFIX;
+    let mut messages_file = OpenOptions::new()
+                            .create(true)
+                            .write(true)
+                            .read(true)
+                            .open(messages_name)
+                            .unwrap();
+    messages_file.seek(SeekFrom::Start(0)).unwrap();
+    let messages_reader = BufReader::new(messages_file);
+    for line in messages_reader.lines() {
+        let l = line.unwrap();
+        let line_vec: Vec<&str> = l.split("\t").collect();
+        let line_timestamp = i64::from_str(line_vec[0]).unwrap();
+        if line_timestamp > login.last_received {
+            last_received = line_timestamp;
+            let mut message_map = HashMap::new();
+            message_map.insert("username".to_string(), line_vec[1].to_string());
+            message_map.insert("body".to_string(), line_vec[2].to_string());
+            response.messages.push(message_map);
+        }
+    }
+    response.last_received = last_received;
+    return response;
+}
+
 fn long_poll(poll: Message) -> response::Response {
     let mut last_received = time::get_time().sec;
     let mut response = response::Response::new();
     let mut saw_self = false;
     while response.messages.is_empty() && !saw_self {
+        let messages_name = MESSAGES_PREFIX.to_owned() + poll.room.as_str() + TXT_SUFFIX;
         let mut file = OpenOptions::new()
+                        .create(true)
+                        .write(true)
                         .read(true)
-                        .open("messages.txt")
+                        .open(messages_name)
                         .unwrap();
         file.seek(SeekFrom::Start(0)).unwrap();
         let reader = BufReader::new(file);
@@ -85,11 +153,12 @@ fn long_poll(poll: Message) -> response::Response {
 }
 
 fn write_log(mut new_message: Message) -> response::Response {
+    let messages_name = MESSAGES_PREFIX.to_owned() + new_message.room.as_str() + TXT_SUFFIX;
     let mut file = OpenOptions::new()
                     .read(true)
                     .create(true)
                     .append(true)
-                    .open("messages.txt")
+                    .open(messages_name)
                     .unwrap();
     if new_message.body.len() != 0 {
         new_message.body.push_str("\n");

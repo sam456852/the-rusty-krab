@@ -6,6 +6,7 @@ pub struct Message {
     pub username: String,
     pub body: String,
     pub last_received: i64,
+    pub room: String,
 }
 
 
@@ -13,6 +14,10 @@ impl Message {
     // let v: Value = serde_json::from_str(json_string)?; //helps make a json
 
     pub fn is_poll(&self) -> bool {
-        return self.body == "".to_string();
+        return self.body == "".to_string() && self.last_received != 0;
+    }
+
+    pub fn is_login(&self) -> bool {
+        return self.body == "".to_string() && self.last_received == 0;
     }
 }
