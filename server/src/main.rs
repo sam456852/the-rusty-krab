@@ -252,6 +252,10 @@ mod server_tests {
 
     #[test]
     fn login_test() {
+        let _ = OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open("users.txt");
         let my_message = Message {
             username: "Klay".to_string(),
             body: "".to_string(),
@@ -261,22 +265,23 @@ mod server_tests {
 
         let mut test_file_message = String::new();
         test_file_message.push_str(("5\tAnotherUser\tHowdy".to_string()).as_str());
-        let test_room_file_name = "messages.txt";
+        let test_room_file_name = "messages_test.txt";
         let mut test_room_file = OpenOptions::new()
                             .write(true)
                             .truncate(true)
+                            .create(true)
                             .open(test_room_file_name)
                             .unwrap();
         test_room_file.write_all(test_file_message.as_bytes()).unwrap();
 
-        let mut expected_response = Response::new("test");
+        let mut expected_response = Response::new("test".to_string());
         let mut message_map = HashMap::new();
         message_map.insert("username".to_string(), "AnotherUser".to_string());
         message_map.insert("body".to_string(), "Howdy".to_string());
         expected_response.messages.push(message_map);
-        expected_response.last_received = 5;
-
-        assert_eq!(login(my_message), expected_response);
+        let actual_response = login(my_message);
+        expected_response.last_received = actual_response.last_received;
+        assert_eq!(actual_response, expected_response);
     }
 
     #[test]
