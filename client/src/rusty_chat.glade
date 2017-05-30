@@ -20,53 +20,16 @@
         <property name="can_focus">False</property>
         <property name="orientation">vertical</property>
         <child>
-          <object class="GtkToolbar" id="toolbar">
+          <object class="GtkToolButton" id="log_in_button">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <child>
-              <object class="GtkToolButton" id="log_in_button">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Log in</property>
-                <property name="is_important">True</property>
-                <property name="label" translatable="yes">Log in</property>
-                <property name="use_underline">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkToolButton" id="new_chat_button">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">New Chatroom</property>
-                <property name="is_important">True</property>
-                <property name="label" translatable="yes">New Chatroom</property>
-                <property name="use_underline">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkToolButton" id="switch_chat_button">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="tooltip_text" translatable="yes">Open New Chatroom</property>
-                <property name="is_important">True</property>
-                <property name="label" translatable="yes">Open New Chatroom</property>
-                <property name="use_underline">True</property>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-              </packing>
-            </child>
+            <property name="tooltip_text" translatable="yes">Log in</property>
+            <property name="is_important">True</property>
+            <property name="label" translatable="yes">Log in</property>
+            <property name="use_underline">True</property>
           </object>
           <packing>
             <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">0</property>
           </packing>
         </child>
         <child>
