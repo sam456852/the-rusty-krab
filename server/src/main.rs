@@ -245,7 +245,7 @@ fn write_log(mut new_message: Message) -> response::Response {
 mod server_tests {
     use std::fs::OpenOptions;
     use std::collections::HashMap;
-    use std::io::{Write, Read, Seek, SeekFrom, BufRead, BufReader};
+    use std::io::{Write, Seek, SeekFrom};
     use super::message::Message;
     use super::response::Response;
     use super::login;
