@@ -142,9 +142,11 @@ pub fn main() {
 fn log_out(tx: std::sync::mpsc::Sender<std::string::String>,
             data_mutex: Arc<Mutex<MessageData>>){
 
+	println!("Logging out Username: {}, Room: {}", get_data_username(data_mutex.clone()), get_data_room(data_mutex.clone()));
+
     //thread::spawn(move|| {
-        let goodbye = format!("{} has left the room!", get_data_username(data_mutex.clone()));
-        send_http_and_write_response(goodbye.as_str(), &tx, &data_mutex.clone());
+        //let goodbye = format!("{} has left the room!", get_data_username(data_mutex.clone()));
+        //send_http_and_write_response(goodbye.as_str(), &tx, &data_mutex.clone());
         set_data_room(data_mutex.clone(), "".to_string());
         set_data_last_received(data_mutex.clone(), 0);
         send_http_and_write_response("", &tx, &data_mutex.clone());
@@ -162,8 +164,8 @@ fn log_in(tx: std::sync::mpsc::Sender<std::string::String>,
             return false
         }
 
-        let hello = format!("{} has entered the room!", get_data_username(data_mutex.clone()));
-        send_http_and_write_response(hello.as_str(), &tx, &data_mutex.clone());
+        //let hello = format!("{} has entered the room!", get_data_username(data_mutex.clone()));
+        //send_http_and_write_response(hello.as_str(), &tx, &data_mutex.clone());
 
         return true;
     //});
@@ -252,15 +254,12 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
             if !successful_log_in {
                 println!("Username taken");
                 username_taken_clone.show();
+				set_data_username(data_mutex_clone.clone(), "".to_string());
+            	set_data_room(data_mutex_clone.clone(), "".to_string());
                 return;
             }
 
-            thread::spawn(move|| {
-
-                poll_loop(tx_clone.clone(), data_mutex_clone.clone());
-            });
-
-            send_button.set_sensitive(true);
+			send_button.set_sensitive(true);
             text_view.set_editable(true);
 
             let title = format!("Rusty Chat : {}@{}", username_buffer.get_text(), room_buffer.get_text());
@@ -268,6 +267,10 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
             log_in_button.set_label("Switch Rooms");
             log_in_window_clone.destroy();
 
+            thread::spawn(move|| {
+
+                poll_loop(tx_clone.clone(), data_mutex_clone.clone());
+            });
         }
     });
 
@@ -309,22 +312,23 @@ fn send_http_and_write_response(text: &str,
     let intial_room = get_data_room(data_mutex.clone());
     let client = Client::new();
     let json = make_json(text, data_mutex.clone());
-    println!("json: {}",json);
+    //println!("json: {}",json);
     let mut response = client.post("http://localhost:3000/").body(&json).send().unwrap();
 
-    if response.status != hyper::Ok{
+    if response.status == hyper::status::StatusCode::Unauthorized{
+		println!("thread should be killed");
         return false;
     }
 
     let mut body = String::new();
     response.read_to_string(&mut body).unwrap();
-    println!("body: {}",body);
-    if body.is_empty() {
-        return true;
-    }
+    //println!("body: {}",body);
     if intial_room != get_data_room(data_mutex.clone()){
-
-        return false
+		println!("Thread should be killed");
+        return false;
+    }
+	if body.is_empty() {
+        return true;
     }
     let r: Response = serde_json::from_str(&body).expect("Something wrong with the JSON");
     let mut new_messages = "".to_owned();
