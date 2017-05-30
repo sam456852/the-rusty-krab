@@ -175,7 +175,6 @@ fn long_poll(poll: Message) -> response::Response {
     while response.messages.is_empty() && !saw_self {
         // Long poll timeout is 5 seconds
         if time::get_time().sec - last_received > 5 {
-            saw_self = true;
             break;
         }
         let messages_name = MESSAGES_PREFIX.to_owned() + poll.room.as_str() + TXT_SUFFIX;
