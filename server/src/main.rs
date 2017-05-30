@@ -237,12 +237,13 @@ fn write_log(mut new_message: Message) -> response::Response {
 #[cfg(test)]
 mod server_tests {
     use std::fs::OpenOptions;
+    use std::collections::HashMap;
+    use std::io::{Write, Read, Seek, SeekFrom, BufRead, BufReader};
     use super::message::Message;
     use super::response::Response;
     use super::login;
     use super::long_poll;
     use super::write_log;
-    use std::io::{Write, Read, Seek, SeekFrom, BufRead, BufReader};
     use MESSAGES_PREFIX;
     use TXT_SUFFIX;
     use USERS_PREFIX;
@@ -266,8 +267,11 @@ mod server_tests {
         test_room_file.seek(SeekFrom::Start(0)).unwrap();
         test_room_file.write_all(test_file_message.as_bytes()).unwrap();
 
-        let expected_response = Response::new();
-        expected_response.messages.push("1\tAnotherUser\tHowdy".to_string());
+        let mut expected_response = Response::new();
+        let mut message_map = HashMap::new();
+        message_map.insert("username".to_string(), "AnotherUser".to_string());
+        message_map.insert("body".to_string(), "Howdy".to_string());
+        expected_response.messages.push(message_map);
 
         assert_eq!(login(my_message), expected_response);       
     }

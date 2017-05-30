@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct Response {
     pub messages: Vec<HashMap<String, String>>,
     pub last_received: i64,
