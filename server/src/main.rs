@@ -116,7 +116,7 @@ fn logout(logout: Message) {
 /// if user is already present in the log.
 fn login(login: Message) -> response::Response {
     let mut last_received = time::get_time().sec;
-    let mut response = response::Response::new();
+    let mut response = response::Response::new(login.room.clone());
     let users_name = USERS_PREFIX.to_owned() + TXT_SUFFIX;
     let mut users_file = OpenOptions::new()
                         .create(true)
@@ -170,7 +170,7 @@ fn login(login: Message) -> response::Response {
 /// If a message by the same user is written, returns an empty Response.
 fn long_poll(poll: Message) -> response::Response {
     let mut last_received = time::get_time().sec;
-    let mut response = response::Response::new();
+    let mut response = response::Response::new(poll.room.clone());
     let mut saw_self = false;
     while response.messages.is_empty() && !saw_self {
         let messages_name = MESSAGES_PREFIX.to_owned() + poll.room.as_str() + TXT_SUFFIX;
@@ -221,7 +221,7 @@ fn write_log(mut new_message: Message) -> response::Response {
 
     file.write_all(log_string.as_bytes()).unwrap();
     file.seek(SeekFrom::Start(0)).unwrap();
-    let mut response = response::Response::new();
+    let mut response = response::Response::new(new_message.room);
     response.last_received = log_time;
     let reader = BufReader::new(file);
     for line in reader.lines() {
@@ -269,25 +269,25 @@ mod server_tests {
                             .unwrap();
         test_room_file.write_all(test_file_message.as_bytes()).unwrap();
 
-        let mut expected_response = Response::new();
+        let mut expected_response = Response::new("test");
         let mut message_map = HashMap::new();
         message_map.insert("username".to_string(), "AnotherUser".to_string());
         message_map.insert("body".to_string(), "Howdy".to_string());
         expected_response.messages.push(message_map);
         expected_response.last_received = 5;
 
-        assert_eq!(login(my_message), expected_response);       
+        assert_eq!(login(my_message), expected_response);
     }
 
     #[test]
     fn long_poll_test() {
 
-        assert_eq!(true, true);       
+        assert_eq!(true, true);
     }
 
     #[test]
     fn write_log_test() {
 
-        assert_eq!(true, true);       
+        assert_eq!(true, true);
     }
 }
