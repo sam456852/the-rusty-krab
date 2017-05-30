@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
@@ -6,24 +5,20 @@ extern crate serde_derive;
 extern crate iron;
 extern crate time;
 
-use iron::prelude::*;
-use iron::status;
-use std::fs::{OpenOptions, File};
-use std::io::{Write, Read, Seek, SeekFrom, BufRead, BufReader};
-use serde_json::{Value, Error};
-use std::str::FromStr;
-use std::collections::HashMap;
-use std::thread;
-
-
 mod message;
 use message::Message;
 mod response;
 
+use iron::prelude::*;
+use iron::status;
+use std::fs::OpenOptions;
+use std::io::{Write, Read, Seek, SeekFrom, BufRead, BufReader};
+use std::str::FromStr;
+use std::collections::HashMap;
+
 static MESSAGES_PREFIX: &'static str = "messages_";
 static TXT_SUFFIX: &'static str = ".txt";
 static USERS_PREFIX: &'static str = "users";
-
 
 fn main() {
     println!("Welcome to Rust chat!");
