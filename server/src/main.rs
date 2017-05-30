@@ -187,6 +187,8 @@ fn long_poll(poll: Message) -> response::Response {
             let line_vec: Vec<&str> = l.split("\t").collect();
             let line_timestamp = i64::from_str(line_vec[0]).unwrap();
             if line_timestamp > poll.last_received {
+                println!("line timestamp was greater than last received");
+                println!("last_received: {}", poll.last_received);
                 last_received = line_timestamp;
                 if line_vec[1] == poll.username {
                     saw_self = true;
@@ -252,29 +254,33 @@ mod server_tests {
 
     #[test]
     fn login_test() {
-        let _ = OpenOptions::new()
+        let mut users_file = OpenOptions::new()
                 .write(true)
                 .truncate(true)
-                .open("users.txt");
+                .open("users.txt")
+                .unwrap();
+        users_file.seek(SeekFrom::Start(0)).unwrap();
         let my_message = Message {
             username: "Klay".to_string(),
             body: "".to_string(),
             last_received: 0,
-            room: "test".to_string(),
+            room: "login_test".to_string(),
         };
 
         let mut test_file_message = String::new();
         test_file_message.push_str(("5\tAnotherUser\tHowdy".to_string()).as_str());
-        let test_room_file_name = "messages_test.txt";
+        let test_room_file_name = "messages_login_test.txt";
         let mut test_room_file = OpenOptions::new()
                             .write(true)
                             .truncate(true)
                             .create(true)
                             .open(test_room_file_name)
                             .unwrap();
-        test_room_file.write_all(test_file_message.as_bytes()).unwrap();
 
-        let mut expected_response = Response::new("test".to_string());
+        test_room_file.write_all(test_file_message.as_bytes()).unwrap();
+        test_room_file.seek(SeekFrom::Start(0)).unwrap();
+
+        let mut expected_response = Response::new("login_test".to_string());
         let mut message_map = HashMap::new();
         message_map.insert("username".to_string(), "AnotherUser".to_string());
         message_map.insert("body".to_string(), "Howdy".to_string());
@@ -286,13 +292,79 @@ mod server_tests {
 
     #[test]
     fn long_poll_test() {
+        let mut users_file = OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open("users.txt")
+                .unwrap();
+        users_file.seek(SeekFrom::Start(0)).unwrap(); 
+        let my_message = Message {
+            username: "Klay".to_string(),
+            body: "".to_string(),
+            last_received: 4,
+            room: "long_poll_test".to_string(),
+        };
 
-        assert_eq!(true, true);
+        let mut test_file_message = String::new();
+        test_file_message.push_str(("2\tAnotherUser\tHowdy\n".to_string()).as_str());
+        test_file_message.push_str(("10\tAnotherUser\tyo".to_string()).as_str());
+        let test_room_file_name = "messages_long_poll_test.txt";
+        let mut test_room_file = OpenOptions::new()
+                            .write(true)
+                            .truncate(true)
+                            .create(true)
+                            .open(test_room_file_name)
+                            .unwrap();
+        test_room_file.write_all(test_file_message.as_bytes()).unwrap();
+        test_room_file.seek(SeekFrom::Start(0)).unwrap();
+        let mut expected_response = Response::new("long_poll_test".to_string());
+        let mut message_map = HashMap::new();
+        message_map.insert("username".to_string(), "AnotherUser".to_string());
+        message_map.insert("body".to_string(), "yo".to_string());
+        expected_response.messages.push(message_map);
+        let actual_response = long_poll(my_message);
+        expected_response.last_received = actual_response.last_received;
+        assert_eq!(actual_response, expected_response);
     }
 
     #[test]
     fn write_log_test() {
+        let mut users_file = OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open("users.txt")
+                .unwrap();
+        users_file.seek(SeekFrom::Start(0)).unwrap(); 
+        let my_message = Message {
+            username: "Klay".to_string(),
+            body: "hi its klay".to_string(),
+            last_received: 4,
+            room: "write_log_test".to_string(),
+        };
 
-        assert_eq!(true, true);
+        let mut test_file_message = String::new();
+        test_file_message.push_str(("2\tAnotherUser\tHowdy\n".to_string()).as_str());
+        test_file_message.push_str(("10\tAnotherUser\tyo\n".to_string()).as_str());
+        let test_room_file_name = "messages_write_log_test.txt";
+        let mut test_room_file = OpenOptions::new()
+                            .write(true)
+                            .truncate(true)
+                            .create(true)
+                            .open(test_room_file_name)
+                            .unwrap();
+        test_room_file.write_all(test_file_message.as_bytes()).unwrap();
+        test_room_file.seek(SeekFrom::Start(0)).unwrap();
+        let mut expected_response = Response::new("write_log_test".to_string());
+        let mut message_map = HashMap::new();
+        let mut message_map2 = HashMap::new();
+        message_map.insert("username".to_string(), "AnotherUser".to_string());
+        message_map.insert("body".to_string(), "yo".to_string());
+        expected_response.messages.push(message_map);
+        message_map2.insert("username".to_string(), "Klay".to_string());
+        message_map2.insert("body".to_string(), "hi its klay".to_string());
+        expected_response.messages.push(message_map2);
+        let actual_response = write_log(my_message);
+        expected_response.last_received = actual_response.last_received;
+        assert_eq!(actual_response, expected_response);
     }
 }
