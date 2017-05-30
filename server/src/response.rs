@@ -6,17 +6,15 @@ use std::collections::HashMap;
 pub struct Response {
     pub messages: Vec<HashMap<String, String>>,
     pub last_received: i64,
-    pub room: String,
 }
 
 
 impl Response {
     /// Constructs a new, empty response
-    pub fn new(room: String) -> Self {
+    pub fn new() -> Self {
         Response{
             messages: vec![],
             last_received: 0,
-            room: room,
         }
     }
 

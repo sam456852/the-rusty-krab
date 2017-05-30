@@ -116,7 +116,7 @@ fn logout(logout: Message) {
 /// if user is already present in the log.
 fn login(login: Message) -> response::Response {
     let mut last_received = time::get_time().sec;
-    let mut response = response::Response::new(login.room.clone());
+    let mut response = response::Response::new();
     let users_name = USERS_PREFIX.to_owned() + TXT_SUFFIX;
     let mut users_file = OpenOptions::new()
                         .create(true)
@@ -170,9 +170,14 @@ fn login(login: Message) -> response::Response {
 /// If a message by the same user is written, returns an empty Response.
 fn long_poll(poll: Message) -> response::Response {
     let mut last_received = time::get_time().sec;
-    let mut response = response::Response::new(poll.room.clone());
+    let mut response = response::Response::new();
     let mut saw_self = false;
     while response.messages.is_empty() && !saw_self {
+        /// Long poll timeout is 5 seconds
+        if time::get_time().sec - last_received > 5 {
+            saw_self = true;
+            break;
+        }
         let messages_name = MESSAGES_PREFIX.to_owned() + poll.room.as_str() + TXT_SUFFIX;
         let mut file = OpenOptions::new()
                         .create(true)
@@ -223,7 +228,7 @@ fn write_log(mut new_message: Message) -> response::Response {
 
     file.write_all(log_string.as_bytes()).unwrap();
     file.seek(SeekFrom::Start(0)).unwrap();
-    let mut response = response::Response::new(new_message.room);
+    let mut response = response::Response::new();
     response.last_received = log_time;
     let reader = BufReader::new(file);
     for line in reader.lines() {
@@ -280,7 +285,7 @@ mod server_tests {
         test_room_file.write_all(test_file_message.as_bytes()).unwrap();
         test_room_file.seek(SeekFrom::Start(0)).unwrap();
 
-        let mut expected_response = Response::new("login_test".to_string());
+        let mut expected_response = Response::new();
         let mut message_map = HashMap::new();
         message_map.insert("username".to_string(), "AnotherUser".to_string());
         message_map.insert("body".to_string(), "Howdy".to_string());
@@ -297,7 +302,7 @@ mod server_tests {
                 .truncate(true)
                 .open("users.txt")
                 .unwrap();
-        users_file.seek(SeekFrom::Start(0)).unwrap(); 
+        users_file.seek(SeekFrom::Start(0)).unwrap();
         let my_message = Message {
             username: "Klay".to_string(),
             body: "".to_string(),
@@ -317,7 +322,7 @@ mod server_tests {
                             .unwrap();
         test_room_file.write_all(test_file_message.as_bytes()).unwrap();
         test_room_file.seek(SeekFrom::Start(0)).unwrap();
-        let mut expected_response = Response::new("long_poll_test".to_string());
+        let mut expected_response = Response::new();
         let mut message_map = HashMap::new();
         message_map.insert("username".to_string(), "AnotherUser".to_string());
         message_map.insert("body".to_string(), "yo".to_string());
@@ -334,7 +339,7 @@ mod server_tests {
                 .truncate(true)
                 .open("users.txt")
                 .unwrap();
-        users_file.seek(SeekFrom::Start(0)).unwrap(); 
+        users_file.seek(SeekFrom::Start(0)).unwrap();
         let my_message = Message {
             username: "Klay".to_string(),
             body: "hi its klay".to_string(),
@@ -354,7 +359,7 @@ mod server_tests {
                             .unwrap();
         test_room_file.write_all(test_file_message.as_bytes()).unwrap();
         test_room_file.seek(SeekFrom::Start(0)).unwrap();
-        let mut expected_response = Response::new("write_log_test".to_string());
+        let mut expected_response = Response::new();
         let mut message_map = HashMap::new();
         let mut message_map2 = HashMap::new();
         message_map.insert("username".to_string(), "AnotherUser".to_string());
