@@ -173,7 +173,7 @@ fn long_poll(poll: Message) -> response::Response {
     let mut response = response::Response::new();
     let mut saw_self = false;
     while response.messages.is_empty() && !saw_self {
-        /// Long poll timeout is 5 seconds
+        // Long poll timeout is 5 seconds
         if time::get_time().sec - last_received > 5 {
             saw_self = true;
             break;
