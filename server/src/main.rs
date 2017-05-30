@@ -40,14 +40,17 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
     // The incoming message is a logout request
     if m.is_logout() {
         logout(m);
+        // Successful logout returns 200 Ok
         Ok(Response::with((status::Ok, "")))
     }
     // The incoming message is a login request
     else if m.is_login() {
         let response = login(m);
+        // If username already taken, return 401 Unauthorized
         if response.messages.is_empty() && response.last_received == 0 {
             Ok(Response::with((status::Unauthorized, "")))
         }
+        // If login successful, return 200 Ok
         else {
             Ok(Response::with((status::Ok, serde_json::to_string(&response).unwrap())))
         }
@@ -55,9 +58,11 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
     // The incoming message is a poll
     else if m.is_poll() {
         let response = long_poll(m);
+        // If last message was sent by same user, return 204 No Content
         if response.messages.is_empty() {
             Ok(Response::with((status::NoContent, "")))
         }
+        // If messages to return, return 200 Ok
         else {
             Ok(Response::with((status::Ok, serde_json::to_string(&response).unwrap())))
         }
@@ -65,6 +70,7 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
     // The incoming message is simply a message
     else {
         let response = write_log(m);
+        // Sucessful message write responds 200 Ok
         Ok(Response::with((status::Ok, serde_json::to_string(&response).unwrap())))
     }
 }
@@ -101,7 +107,8 @@ fn logout(logout: Message) {
 
 /// Given a login request with a username and room, adds the user
 /// to the users log file and returns the messages of the specified
-/// room log file in the returned Response
+/// room log file in the returned Response. Returns empty Response
+/// if user is already present in the log.
 fn login(login: Message) -> response::Response {
     let mut last_received = time::get_time().sec;
     let mut response = response::Response::new();
