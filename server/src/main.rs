@@ -1,3 +1,5 @@
+//! Rustychat server implementation
+
 extern crate serde_json;
 #[macro_use]
 extern crate serde_derive;
@@ -22,10 +24,12 @@ static USERS_PREFIX: &'static str = "users";
 
 fn main() {
     println!("Welcome to Rust chat!");
-    // Iron will already spawn a new thread per incoming request
+    // Iron will spawn a new thread per incoming request
     Iron::new(parse_request).http("localhost:3000").unwrap();
 }
 
+/// Parses an incoming HTTP request and returns a corresponding IronResult
+/// containing the HTTP response to return
 fn parse_request(request: &mut Request) -> IronResult<Response> {
     let mut body = String::new();
     request
@@ -33,10 +37,12 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
         .read_to_string(&mut body)
         .map_err(|e| IronError::new(e, (status::InternalServerError, "Error reading request")))?;
     let m: Message = serde_json::from_str(body.as_str()).unwrap();
+    // The incoming message is a logout request
     if m.is_logout() {
         logout(m);
         Ok(Response::with((status::Ok, "")))
     }
+    // The incoming message is a login request
     else if m.is_login() {
         let response = login(m);
         if response.messages.is_empty() && response.last_received == 0 {
@@ -46,6 +52,7 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
             Ok(Response::with((status::Ok, serde_json::to_string(&response).unwrap())))
         }
     }
+    // The incoming message is a poll
     else if m.is_poll() {
         let response = long_poll(m);
         if response.messages.is_empty() {
@@ -54,14 +61,15 @@ fn parse_request(request: &mut Request) -> IronResult<Response> {
         else {
             Ok(Response::with((status::Ok, serde_json::to_string(&response).unwrap())))
         }
-
     }
+    // The incoming message is simply a message
     else {
         let response = write_log(m);
         Ok(Response::with((status::Ok, serde_json::to_string(&response).unwrap())))
     }
 }
 
+/// Given a logout request containing a username, removes the user from the users log file
 fn logout(logout: Message) {
     let users_name = USERS_PREFIX.to_owned() + TXT_SUFFIX;
     let mut users_file = OpenOptions::new()
@@ -91,6 +99,9 @@ fn logout(logout: Message) {
     users_file_write.write_all(user_log_entry.as_bytes()).unwrap();
 }
 
+/// Given a login request with a username and room, adds the user
+/// to the users log file and returns the messages of the specified
+/// room log file in the returned Response
 fn login(login: Message) -> response::Response {
     let mut last_received = time::get_time().sec;
     let mut response = response::Response::new();
@@ -142,6 +153,9 @@ fn login(login: Message) -> response::Response {
     return response;
 }
 
+/// Given a poll request, waits for a message newer than the last_received field to
+/// be written to the room log and returns that message once it is written.
+/// If a message by the same user is written, returns an empty Response.
 fn long_poll(poll: Message) -> response::Response {
     let mut last_received = time::get_time().sec;
     let mut response = response::Response::new();
@@ -177,6 +191,7 @@ fn long_poll(poll: Message) -> response::Response {
     return response;
 }
 
+/// Writes a new message to the respective room log and returns the appropriate Response
 fn write_log(mut new_message: Message) -> response::Response {
     let messages_name = MESSAGES_PREFIX.to_owned() + new_message.room.as_str() + TXT_SUFFIX;
     let mut file = OpenOptions::new()

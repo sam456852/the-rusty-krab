@@ -1,5 +1,4 @@
-use serde_json;
-use serde_json::{Value, Error};
+//! Serde JSON implementation of HTTP Response format
 
 use std::collections::HashMap;
 
@@ -11,7 +10,7 @@ pub struct Response {
 
 
 impl Response {
-
+    /// Constructs a new, empty response
     pub fn new() -> Self {
         Response{
             messages: vec![],
