@@ -244,9 +244,6 @@ mod server_tests {
     use super::login;
     use super::long_poll;
     use super::write_log;
-    use MESSAGES_PREFIX;
-    use TXT_SUFFIX;
-    use USERS_PREFIX;
 
     #[test]
     fn login_test() {
@@ -258,13 +255,13 @@ mod server_tests {
         };
 
         let mut test_file_message = String::new();
-        test_file_message.push_str(("1\tAnotherUser\tHowdy".to_string()).as_str());
-        let test_room_file_name = MESSAGES_PREFIX.to_owned() + "test" + TXT_SUFFIX;
+        test_file_message.push_str(("5\tAnotherUser\tHowdy".to_string()).as_str());
+        let test_room_file_name = "messages.txt";
         let mut test_room_file = OpenOptions::new()
-                            .append(true)
+                            .write(true)
+                            .truncate(true)
                             .open(test_room_file_name)
                             .unwrap();
-        test_room_file.seek(SeekFrom::Start(0)).unwrap();
         test_room_file.write_all(test_file_message.as_bytes()).unwrap();
 
         let mut expected_response = Response::new();
@@ -272,6 +269,7 @@ mod server_tests {
         message_map.insert("username".to_string(), "AnotherUser".to_string());
         message_map.insert("body".to_string(), "Howdy".to_string());
         expected_response.messages.push(message_map);
+        expected_response.last_received = 5;
 
         assert_eq!(login(my_message), expected_response);       
     }
