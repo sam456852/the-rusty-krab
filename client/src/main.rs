@@ -183,9 +183,9 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
     let log_in_window = gtk::Window::new(gtk::WindowType::Toplevel);
 
     log_in_window.set_title("Log in");
-    log_in_window.set_default_size(400, 200);
+    log_in_window.set_default_size(400, 100);
 
-    let button = gtk::Button::new_with_label("Log in");
+    let mut button = gtk::Button::new_with_label("Log in");
     let window_clone = log_in_window.clone();
 
     let username_entry = gtk::Entry::new();
@@ -200,6 +200,8 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
     if get_data_username(data_mutex.clone()) != ""{
 
         username_entry_clone.set_editable(false);
+        log_in_window.set_title("Switch Room");
+        button = gtk::Button::new_with_label("Switch Room");
     }
 
     button.connect_clicked(move |_| {
@@ -241,17 +243,15 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
     let username_label = gtk::Label::new(Some("Username: "));
     let room_label = gtk::Label::new(Some("Room: "));
 
-    let username_gtkbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    username_gtkbox.add(&username_label);
-    username_gtkbox.add(&username_entry);
+    let info_grid = gtk::Grid::new();
+    info_grid.attach(&username_label, 0, 0, 1, 1);
+    info_grid.attach(&username_entry, 1, 0, 1, 1);
+    info_grid.attach(&room_label, 0, 1, 1, 1);
+    info_grid.attach(&room_entry, 1, 1, 1, 1);
 
-    let room_gtkbox = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    room_gtkbox.add(&room_label);
-    room_gtkbox.add(&room_entry);
 
     let gtkbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    gtkbox.add(&username_gtkbox);
-    gtkbox.add(&room_gtkbox);
+    gtkbox.add(&info_grid);
     gtkbox.add(&button);
 
     gtkbox.set_child_packing(&button, false, true, 0, gtk::PackType::Start);

@@ -24,6 +24,11 @@ static USERS_PREFIX: &'static str = "users";
 
 fn main() {
     println!("Welcome to Rust chat!");
+    // Reset logged in users
+    let _ = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(USERS_PREFIX.to_owned() + TXT_SUFFIX);
     // Iron will spawn a new thread per incoming request
     Iron::new(parse_request).http("localhost:3000").unwrap();
 }
