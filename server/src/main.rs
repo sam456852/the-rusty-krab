@@ -232,3 +232,55 @@ fn write_log(mut new_message: Message) -> response::Response {
     }
     return response;
 }
+
+
+#[cfg(test)]
+mod server_tests {
+    use std::fs::OpenOptions;
+    use super::message::Message;
+    use super::response::Response;
+    use super::login;
+    use super::long_poll;
+    use super::write_log;
+    use std::io::{Write, Read, Seek, SeekFrom, BufRead, BufReader};
+    use MESSAGES_PREFIX;
+    use TXT_SUFFIX;
+    use USERS_PREFIX;
+
+    #[test]
+    fn login_test() {
+        let my_message = Message {
+            username: "Klay".to_string(),
+            body: "".to_string(),
+            last_received: 0,
+            room: "test".to_string(),
+        };
+
+        let mut test_file_message = String::new();
+        test_file_message.push_str(("1\tAnotherUser\tHowdy".to_string()).as_str());
+        let test_room_file_name = MESSAGES_PREFIX.to_owned() + "test" + TXT_SUFFIX;
+        let mut test_room_file = OpenOptions::new()
+                            .append(true)
+                            .open(test_room_file_name)
+                            .unwrap();
+        test_room_file.seek(SeekFrom::Start(0)).unwrap();
+        test_room_file.write_all(test_file_message.as_bytes()).unwrap();
+
+        let expected_response = Response::new();
+        expected_response.messages.push("1\tAnotherUser\tHowdy".to_string());
+
+        assert_eq!(login(my_message), expected_response);       
+    }
+
+    #[test]
+    fn long_poll_test() {
+
+        assert_eq!(true, true);       
+    }
+
+    #[test]
+    fn write_log_test() {
+
+        assert_eq!(true, true);       
+    }
+}
