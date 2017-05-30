@@ -142,11 +142,30 @@ pub fn main() {
 fn log_out(tx: std::sync::mpsc::Sender<std::string::String>,
             data_mutex: Arc<Mutex<MessageData>>){
 
-    println!("Logging out");
+    //thread::spawn(move|| {
+        let goodbye = format!("{} has left the room!", get_data_username(data_mutex.clone()));
+        send_http_and_write_response(goodbye.as_str(), &tx, &data_mutex.clone());
+        set_data_room(data_mutex.clone(), "".to_string());
+        set_data_last_received(data_mutex.clone(), 0);
+        send_http_and_write_response("", &tx, &data_mutex.clone());
+    //});
+}
+
+fn log_in(tx: std::sync::mpsc::Sender<std::string::String>,
+            data_mutex: Arc<Mutex<MessageData>>) -> bool{
+
+    println!("Logging in Username: {}, Room: {}", get_data_username(data_mutex.clone()), get_data_room(data_mutex.clone()));
 
     //thread::spawn(move|| {
-        set_data_room(data_mutex.clone(), "".to_string());
-        send_http_and_write_response("", &tx, &data_mutex.clone());
+        set_data_last_received(data_mutex.clone(), 0);
+        if !send_http_and_write_response("", &tx, &data_mutex.clone()){
+            return false
+        }
+
+        let hello = format!("{} has entered the room!", get_data_username(data_mutex.clone()));
+        send_http_and_write_response(hello.as_str(), &tx, &data_mutex.clone());
+
+        return true;
     //});
 }
 
@@ -182,11 +201,13 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
 
     let log_in_window = gtk::Window::new(gtk::WindowType::Toplevel);
 
+    let first_time = get_data_username(data_mutex.clone()) == "";
+
     log_in_window.set_title("Log in");
     log_in_window.set_default_size(400, 100);
 
     let mut button = gtk::Button::new_with_label("Log in");
-    let window_clone = log_in_window.clone();
+    let log_in_window_clone = log_in_window.clone();
 
     let username_entry = gtk::Entry::new();
     username_entry.set_tooltip_text("Username");
@@ -197,12 +218,15 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
     let username_entry_clone = username_entry.clone();
     let room_entry_clone = room_entry.clone();
 
-    if get_data_username(data_mutex.clone()) != ""{
+    if !first_time {
 
         username_entry_clone.set_editable(false);
         log_in_window.set_title("Switch Room");
         button = gtk::Button::new_with_label("Switch Room");
     }
+
+    let username_taken = gtk::Label::new(Some("USERNAME TAKEN"));
+    let username_taken_clone = username_taken.clone();
 
     button.connect_clicked(move |_| {
 
@@ -214,7 +238,7 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
             let tx_clone = tx.clone();
             let data_mutex_clone = data_mutex.clone();
 
-            if get_data_room(data_mutex_clone.clone()) != "" {
+            if !first_time {
 
                 log_out(tx_clone.clone(), data_mutex_clone.clone());
                 chat_view.get_buffer().unwrap().set_text("");
@@ -223,7 +247,13 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
             set_data_username(data_mutex_clone.clone(), username_buffer.get_text());
             set_data_room(data_mutex_clone.clone(), room_buffer.get_text());
 
-            window_clone.destroy();
+            let successful_log_in = log_in(tx_clone.clone(), data_mutex_clone.clone());
+
+            if !successful_log_in {
+                println!("Username taken");
+                username_taken_clone.show();
+                return;
+            }
 
             thread::spawn(move|| {
 
@@ -236,21 +266,22 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
             let title = format!("Rusty Chat : {}@{}", username_buffer.get_text(), room_buffer.get_text());
             main_window.set_title(title.as_str());
             log_in_button.set_label("Switch Rooms");
+            log_in_window_clone.destroy();
+
         }
     });
 
 
     let username_label = gtk::Label::new(Some("Username: "));
     let room_label = gtk::Label::new(Some("Room: "));
-
     let info_grid = gtk::Grid::new();
     info_grid.attach(&username_label, 0, 0, 1, 1);
     info_grid.attach(&username_entry, 1, 0, 1, 1);
     info_grid.attach(&room_label, 0, 1, 1, 1);
     info_grid.attach(&room_entry, 1, 1, 1, 1);
 
-
     let gtkbox = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    gtkbox.add(&username_taken);
     gtkbox.add(&info_grid);
     gtkbox.add(&button);
 
@@ -259,26 +290,41 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
     log_in_window.add(&gtkbox);
 
     log_in_window.show_all();
+	username_taken.hide();
 }
 
 fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>,
             data_mutex: Arc<Mutex<MessageData>>) {
     loop {
         //println!("polling");
-        send_http_and_write_response("", &tx, &data_mutex.clone());
+        if !send_http_and_write_response("", &tx, &data_mutex.clone()){
+            return;
+        }
     }
 }
 
 fn send_http_and_write_response(text: &str,
                                 tx: &std::sync::mpsc::Sender<std::string::String>,
-                                data_mutex: &Arc<Mutex<MessageData>>) {
+                                data_mutex: &Arc<Mutex<MessageData>>) -> bool {
+    let intial_room = get_data_room(data_mutex.clone());
     let client = Client::new();
     let json = make_json(text, data_mutex.clone());
+    println!("json: {}",json);
     let mut response = client.post("http://localhost:3000/").body(&json).send().unwrap();
+
+    if response.status != hyper::Ok{
+        return false;
+    }
+
     let mut body = String::new();
     response.read_to_string(&mut body).unwrap();
+    println!("body: {}",body);
     if body.is_empty() {
-        return;
+        return true;
+    }
+    if intial_room != get_data_room(data_mutex.clone()){
+
+        return false
     }
     let r: Response = serde_json::from_str(&body).expect("Something wrong with the JSON");
     let mut new_messages = "".to_owned();
@@ -293,6 +339,7 @@ fn send_http_and_write_response(text: &str,
         tx.send(new_messages).unwrap();
         glib::idle_add(receive);
     }
+    return true;
 }
 
 fn make_json(text: &str, data_mutex: Arc<Mutex<MessageData>>) -> String {
@@ -344,4 +391,14 @@ fn set_data_room(data_mutex: Arc<Mutex<MessageData>>,
                 room: String){
     let mut data = data_mutex.lock().unwrap();
     data.room = room.clone();
+}
+
+fn get_data_last_received(data_mutex: Arc<Mutex<MessageData>>)-> i64{
+    return data_mutex.lock().unwrap().last_received.clone();
+}
+
+fn set_data_last_received(data_mutex: Arc<Mutex<MessageData>>,
+                last_received: i64){
+    let mut data = data_mutex.lock().unwrap();
+    data.last_received = last_received;
 }
