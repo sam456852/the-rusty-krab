@@ -24,3 +24,44 @@ impl Message {
         return self.body == "".to_string() && self.last_received == 0 && self.room == "".to_string()
     }
 }
+
+#[cfg(test)]
+mod message_tests {
+    use super::Message;
+
+    #[test]
+    fn is_poll_test() {
+        let test_message = Message {
+            username: "Stephen".to_string(),
+            body: "".to_string(),
+            last_received: 10,
+            room: "test_room".to_string(),
+        };
+
+        assert_eq!(test_message.is_poll(), true);   
+    }
+
+    #[test]
+    fn is_login_test() {
+        let test_message = Message {
+            username: "Kevin".to_string(),
+            body: "".to_string(),
+            last_received: 0,
+            room: "test_room".to_string(),
+        };
+
+        assert_eq!(test_message.is_login(), true);   
+    }
+
+    #[test]
+    fn is_logout_test() {
+        let test_message = Message {
+            username: "Draymond".to_string(),
+            body: "".to_string(),
+            last_received: 0,
+            room: "".to_string(),
+        };
+
+        assert_eq!(test_message.is_logout(), true);   
+    }
+}
