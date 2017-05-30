@@ -324,7 +324,6 @@ fn send_http_and_write_response(text: &str,
     response.read_to_string(&mut body).unwrap();
     //println!("body: {}",body);
     if intial_room != get_data_room(data_mutex.clone()){
-		println!("Thread should be killed");
         return false;
     }
 	if body.is_empty() {

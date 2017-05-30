@@ -192,8 +192,6 @@ fn long_poll(poll: Message) -> response::Response {
             let line_vec: Vec<&str> = l.split("\t").collect();
             let line_timestamp = i64::from_str(line_vec[0]).unwrap();
             if line_timestamp > poll.last_received {
-                println!("line timestamp was greater than last received");
-                println!("last_received: {}", poll.last_received);
                 last_received = line_timestamp;
                 if line_vec[1] == poll.username {
                     saw_self = true;
