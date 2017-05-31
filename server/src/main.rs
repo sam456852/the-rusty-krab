@@ -13,6 +13,7 @@ mod response;
 
 use iron::prelude::*;
 use iron::status;
+use std::fs;
 use std::fs::OpenOptions;
 use std::io::{Write, Read, Seek, SeekFrom, BufRead, BufReader};
 use std::str::FromStr;
@@ -29,6 +30,20 @@ fn main() {
             .write(true)
             .truncate(true)
             .open(USERS_PREFIX.to_owned() + TXT_SUFFIX);
+    // Reset all message logs
+    let paths = fs::read_dir("./").unwrap();
+    for path in paths {
+        let path_name = path.unwrap().path();
+        let path_name_str = path_name.to_str().unwrap();
+        let expected_path_prefix = "./".to_string() + MESSAGES_PREFIX;
+        if path_name_str.len() >= expected_path_prefix.len()
+           && &path_name_str[..expected_path_prefix.len()] == expected_path_prefix {
+            let _ = OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .open(path_name_str);
+        }
+    }
     // Iron will spawn a new thread per incoming request
     Iron::new(parse_request).http("localhost:3000").unwrap();
 }
