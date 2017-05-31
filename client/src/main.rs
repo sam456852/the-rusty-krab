@@ -405,3 +405,21 @@ fn set_data_last_received(data_mutex: Arc<Mutex<MessageData>>,
     let mut data = data_mutex.lock().unwrap();
     data.last_received = last_received;
 }
+
+#[cfg(test)]
+mod json_test {
+    use super::{make_json, MessageData, Arc, Mutex};
+
+    #[test]
+    fn json_test() {
+        let data = MessageData {
+            last_received: 123234541,
+            username: "Chris".to_string(),
+            room: "Lobby".to_string(),
+        };
+        let data_mutex = Arc::new(Mutex::new(data));
+        let json = make_json("This is a test.", data_mutex);
+        assert_eq!(json, "{\"body\":\"This is a test.\",\"last_received\":123234541,\"room\":\"Lobby\",\"username\":\"Chris\"}");
+    }
+}
+
