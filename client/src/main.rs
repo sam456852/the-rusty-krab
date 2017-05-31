@@ -68,6 +68,7 @@ pub fn main() {
     let send_button_tx = tx.clone();
     let send_button_data_mutex = data_mutex.clone();
 
+	//Send message on enter key
     text_view.connect_key_release_event(move |_, key| {
 
         if key.get_keyval() == 65293 {
@@ -126,6 +127,7 @@ pub fn main() {
     let tx_clone = tx.clone();
     let data_mutex_clone = data_mutex.clone();
 
+	//Log out when window is exited
     window.connect_delete_event(move |_, _| {
 
         if get_data_username(data_mutex_clone.clone()) != ""{
@@ -142,33 +144,16 @@ pub fn main() {
 fn log_out(tx: std::sync::mpsc::Sender<std::string::String>,
             data_mutex: Arc<Mutex<MessageData>>){
 
-	println!("Logging out Username: {}, Room: {}", get_data_username(data_mutex.clone()), get_data_room(data_mutex.clone()));
-
-    //thread::spawn(move|| {
-        //let goodbye = format!("{} has left the room!", get_data_username(data_mutex.clone()));
-        //send_http_and_write_response(goodbye.as_str(), &tx, &data_mutex.clone());
-        set_data_room(data_mutex.clone(), "".to_string());
-        set_data_last_received(data_mutex.clone(), 0);
-        send_http_and_write_response("", &tx, &data_mutex.clone());
-    //});
+	set_data_room(data_mutex.clone(), "".to_string());
+	set_data_last_received(data_mutex.clone(), 0);
+	send_http_and_write_response("", &tx, &data_mutex.clone());
 }
 
 fn log_in(tx: std::sync::mpsc::Sender<std::string::String>,
             data_mutex: Arc<Mutex<MessageData>>) -> bool{
 
-    println!("Logging in Username: {}, Room: {}", get_data_username(data_mutex.clone()), get_data_room(data_mutex.clone()));
-
-    //thread::spawn(move|| {
-        set_data_last_received(data_mutex.clone(), 0);
-        if !send_http_and_write_response("", &tx, &data_mutex.clone()){
-            return false
-        }
-
-        //let hello = format!("{} has entered the room!", get_data_username(data_mutex.clone()));
-        //send_http_and_write_response(hello.as_str(), &tx, &data_mutex.clone());
-
-        return true;
-    //});
+	set_data_last_received(data_mutex.clone(), 0);
+	return send_http_and_write_response("", &tx, &data_mutex.clone());
 }
 
 fn send_message(sent_message_view: gtk::TextView,
@@ -220,6 +205,7 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
     let username_entry_clone = username_entry.clone();
     let room_entry_clone = room_entry.clone();
 
+	//Sets UI based on if logging in or switching rooms
     if !first_time {
 
         username_entry_clone.set_editable(false);
@@ -235,11 +221,13 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
         let username_buffer = username_entry_clone.get_buffer();
         let room_buffer = room_entry_clone.get_buffer();
 
+		//if valid information
         if username_buffer.get_text() != "" && room_buffer.get_text() != ""{
 
             let tx_clone = tx.clone();
             let data_mutex_clone = data_mutex.clone();
 
+			//Logs user out and resets chat
             if !first_time {
 
                 log_out(tx_clone.clone(), data_mutex_clone.clone());
@@ -251,6 +239,7 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
 
             let successful_log_in = log_in(tx_clone.clone(), data_mutex_clone.clone());
 
+			//If log in is not successful, chat is reset
             if !successful_log_in {
                 println!("Username taken");
                 username_taken_clone.show();
@@ -299,7 +288,6 @@ fn make_log_in_window (tx: std::sync::mpsc::Sender<String>,
 fn poll_loop(tx: std::sync::mpsc::Sender<std::string::String>,
             data_mutex: Arc<Mutex<MessageData>>) {
     loop {
-        //println!("polling");
         if !send_http_and_write_response("", &tx, &data_mutex.clone()){
             return;
         }
@@ -312,7 +300,6 @@ fn send_http_and_write_response(text: &str,
     let intial_room = get_data_room(data_mutex.clone());
     let client = Client::new();
     let json = make_json(text, data_mutex.clone());
-    //println!("json: {}",json);
     let mut response = client.post("http://localhost:3000/").body(&json).send().unwrap();
 
     if response.status == hyper::status::StatusCode::Unauthorized{
@@ -322,7 +309,6 @@ fn send_http_and_write_response(text: &str,
 
     let mut body = String::new();
     response.read_to_string(&mut body).unwrap();
-    //println!("body: {}",body);
     if intial_room != get_data_room(data_mutex.clone()){
         return false;
     }
@@ -396,10 +382,11 @@ fn set_data_room(data_mutex: Arc<Mutex<MessageData>>,
     data.room = room.clone();
 }
 
+/*
 fn get_data_last_received(data_mutex: Arc<Mutex<MessageData>>)-> i64{
     return data_mutex.lock().unwrap().last_received.clone();
 }
-
+*/
 fn set_data_last_received(data_mutex: Arc<Mutex<MessageData>>,
                 last_received: i64){
     let mut data = data_mutex.lock().unwrap();
